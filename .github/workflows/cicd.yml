@@ -4,14 +4,13 @@ on:
   push:
     branches:
       - main
-  push:
     tags:
       - 'v*.*.*'
 
 env:
   REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
-  IMAGE_NAME:  test-application
-  REGISTRY:    cr.yandex
+  IMAGE_NAME: test-application
+  REGISTRY: cr.yandex
 
 jobs:
   build-and-push:
@@ -44,7 +43,7 @@ jobs:
 
   deploy:
     needs: build-and-push
-    if: github.ref_type == 'tag'      # деплой только при теге vX.Y.Z
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
 
     steps:
@@ -58,9 +57,6 @@ jobs:
             TAG="${GITHUB_REF_NAME}"
             IMAGE="cr.yandex/${{ secrets.YC_REGISTRY_ID }}/test-application:${TAG}"
 
-            echo "Using image: $IMAGE"
-
-            # Переходим в root и выполняем kubectl
             sudo -i bash -c "
               export KUBECONFIG=/root/.kube/config
               kubectl set image deployment/test-application test-application=${IMAGE} -n default
