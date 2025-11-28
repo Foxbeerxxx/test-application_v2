@@ -2,15 +2,14 @@ name: CI/CD test-application
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*.*.*'
+    branches: [ "main" ]
+  tags:
+    - 'v*.*.*'
 
 env:
+  REGISTRY: cr.yandex
   REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
   IMAGE_NAME: test-application
-  REGISTRY: cr.yandex
 
 jobs:
   build-and-push:
@@ -23,42 +22,25 @@ jobs:
       - name: Set image tag
         id: vars
         run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            TAG="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
           else
-            TAG="latest"
+            echo "TAG=latest" >> "$GITHUB_ENV"
           fi
-          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Login to Yandex Container Registry
+        env:
+          YC_TOKEN: ${{ secrets.YC_TOKEN }}
         run: |
-          echo "${{ secrets.YC_REGISTRY_TOKEN }}" | docker login $REGISTRY -u oauth --password-stdin
+          if [ -z "$YC_TOKEN" ]; then
+            echo "YC_TOKEN is empty. Add OAuth token to repository secrets."
+            exit 1
+          fi
+          echo "$YC_TOKEN" | docker login "$REGISTRY" -u oauth --password-stdin
 
       - name: Build and push image
         run: |
-          IMAGE="$REGISTRY/$REGISTRY_ID/$IMAGE_NAME:${{ steps.vars.outputs.TAG }}"
+          IMAGE="$REGISTRY/$REGISTRY_ID/$IMAGE_NAME:$TAG"
           echo "Building image: $IMAGE"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
-
-  deploy:
-    needs: build-and-push
-    if: github.ref_type == 'tag'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Deploy to Kubernetes via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.K8S_MASTER_IP }}
-          username: ubuntu
-          key: ${{ secrets.K8S_SSH_KEY }}
-          script: |
-            TAG="${GITHUB_REF_NAME}"
-            IMAGE="cr.yandex/${{ secrets.YC_REGISTRY_ID }}/test-application:${TAG}"
-
-            sudo -i bash -c "
-              export KUBECONFIG=/root/.kube/config
-              kubectl set image deployment/test-application test-application=${IMAGE} -n default
-              kubectl rollout status deployment/test-application -n default
-            "
