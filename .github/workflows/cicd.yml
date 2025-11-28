@@ -29,9 +29,16 @@ jobs:
             echo "TAG=latest" >> "$GITHUB_ENV"
           fi
 
-      - name: Login to Yandex Container Registry
+            - name: Login to Yandex Container Registry
+        env:
+          YC_TOKEN: ${{ secrets.YC_TOKEN }}
         run: |
-          echo "${{ secrets.YC_OAUTH_TOKEN }}" | docker login "$REGISTRY" -u oauth --password-stdin
+          if [ -z "$YC_TOKEN" ]; then
+            echo "YC_TOKEN is empty. Set repository secret YC_TOKEN with your Yandex Cloud OAuth token."
+            exit 1
+          fi
+          echo "$YC_TOKEN" | docker login "$REGISTRY" -u oauth --password-stdin
+
 
       - name: Build and push image
         run: |
