@@ -3,8 +3,7 @@ name: CI/CD test-application
 on:
   push:
     branches: [ "main" ]
-  tags:
-    - 'v*.*.*'
+    tags: [ 'v*' ]
 
 env:
   REGISTRY: cr.yandex
@@ -22,10 +21,10 @@ jobs:
       - name: Set image tag
         id: vars
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
           else
-            echo "TAG=latest" >> "$GITHUB_ENV"
+            echo "TAG=latest" >> $GITHUB_ENV
           fi
 
       - name: Login to Yandex Container Registry
